@@ -6,6 +6,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from streamlit_pdf_viewer import pdf_viewer
 import io
+import xml.sax.saxutils as saxutils # Added for safety
 
 # --- 1. APP CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="SmartScan AI Pro", page_icon="📄")
@@ -20,11 +21,10 @@ with st.sidebar:
     st.info("Created By Tayeeb Ansari, Powered by Gemini")
 
 # Apply Theme
-bg, text, card = ("#0E1117", "#E0E0E0", "#1d1e24") if night_mode else ("#F0F2F6", "#31333F", "#FFFFFF")
+bg, text = ("#0E1117", "#E0E0E0") if night_mode else ("#F0F2F6", "#31333F")
 st.markdown(f"<style>.stApp {{ background-color: {bg}; color: {text}; }}</style>", unsafe_allow_html=True)
 
-# --- 3. SECURE API SETUP (UPDATED) ---
-# Strictly use Secrets. Do NOT hardcode a fallback key.
+# --- 3. SECURE API SETUP ---
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
@@ -40,9 +40,15 @@ def create_styled_pdf(text_content):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     styles = getSampleStyleSheet()
+    # Safety: Escape special characters like '&' so ReportLab doesn't crash
+    safe_text = saxutils.escape(text_content)
+    
     elements = [Paragraph("SmartScan AI - Edited Export", styles['Heading1']), Spacer(1, 12)]
-    for line in text_content.split('\n'):
-        elements.append(Paragraph(line, styles['Normal']) if line.strip() else Spacer(1, 10))
+    for line in safe_text.split('\n'):
+        if line.strip():
+            elements.append(Paragraph(line, styles['Normal']))
+        else:
+            elements.append(Spacer(1, 10))
     doc.build(elements)
     return buffer.getvalue()
 
@@ -78,7 +84,7 @@ if uploaded_file:
         if st.button("✨ Prepare AI Summary", type="primary"):
             with st.spinner("Gemini is reading your edits..."):
                 try:
-                    # FIX: Removed space and used correct model name
+                    # FIX: Correct model name format
                     model = genai.GenerativeModel("gemini-1.5-flash")
                     prompt = f"Summarize these edits in {summary_size} detail: {st.session_state.edited_text[:4000]}"
                     response = model.generate_content(prompt)
@@ -89,14 +95,8 @@ if uploaded_file:
         if st.session_state.ai_summary:
             st.divider()
             st.markdown(st.session_state.ai_summary)
-        else:
-            st.info("Your summary will appear here after clicking the button above.")
 
     with tab_export:
         st.subheader("Ready to save?")
-        st.write("This will create a new PDF with all your changes.")
         edited_pdf = create_styled_pdf(st.session_state.edited_text)
         st.download_button("📥 Download Edited PDF", edited_pdf, "Edited_Doc.pdf", "application/pdf")
-
-else:
-    st.info("Upload a PDF to start.")
