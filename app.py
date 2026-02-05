@@ -17,21 +17,19 @@ with st.sidebar:
     st.divider()
     night_mode = st.toggle("🌙 Night Mode", value=True)
     summary_size = st.select_slider("Summary Detail", options=["Brief", "Medium", "Detailed"])
-    st.info("Created By Tayeeb Ansari , Powered by Gemini 3.0 - flash")
+    st.info("Created By Tayeeb Ansari, Powered by Gemini")
 
 # Apply Theme
 bg, text, card = ("#0E1117", "#E0E0E0", "#1d1e24") if night_mode else ("#F0F2F6", "#31333F", "#FFFFFF")
 st.markdown(f"<style>.stApp {{ background-color: {bg}; color: {text}; }}</style>", unsafe_allow_html=True)
 
-# --- 3. SECURE API SETUP ---
-# Tomorrow, you will add "GEMINI_API_KEY" to your Streamlit Secrets dashboard
-try:
-    MY_API_KEY = st.secrets["GEMINI_API_KEY"]
-except:
-    # Fallback for local testing before you set up secrets
-    MY_API_KEY = "AIzaSyD12H7hndOcb0Wc--Z4g_-MNysXgRbDru8"
-
-genai.configure(api_key=MY_API_KEY)
+# --- 3. SECURE API SETUP (UPDATED) ---
+# Strictly use Secrets. Do NOT hardcode a fallback key.
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+else:
+    st.error("⚠️ API Key not found! Add 'GEMINI_API_KEY' to Streamlit Secrets.")
+    st.stop()
 
 # --- 4. CORE FUNCTIONS ---
 def extract_text(pdf_file):
@@ -58,7 +56,6 @@ if uploaded_file:
     if "ai_summary" not in st.session_state:
         st.session_state.ai_summary = ""
 
-    # --- THE TABBED SYSTEM ---
     tab_editor, tab_ai, tab_export = st.tabs(["🔍 Workspace", "🤖 AI Analysis", "📥 Export"])
 
     with tab_editor:
@@ -78,20 +75,17 @@ if uploaded_file:
 
     with tab_ai:
         st.subheader("🤖 Artificial Intelligence Insights")
-        st.write("Click the button below to analyze your edited text.")
-        
-        # --- THE BUTTON IS NOW HERE ---
         if st.button("✨ Prepare AI Summary", type="primary"):
             with st.spinner("Gemini is reading your edits..."):
                 try:
-                    model = genai.GenerativeModel("gemini-3- flash-preview")
+                    # FIX: Removed space and used correct model name
+                    model = genai.GenerativeModel("gemini-1.5-flash")
                     prompt = f"Summarize these edits in {summary_size} detail: {st.session_state.edited_text[:4000]}"
                     response = model.generate_content(prompt)
                     st.session_state.ai_summary = response.text
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"AI Error: {e}")
 
-        # Display results
         if st.session_state.ai_summary:
             st.divider()
             st.markdown(st.session_state.ai_summary)
