@@ -6,7 +6,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from streamlit_pdf_viewer import pdf_viewer
 import io
-import xml.sax.saxutils as saxutils # Added for safety
+import xml.sax.saxutils as saxutils
 
 # --- 1. APP CONFIGURATION ---
 st.set_page_config(layout="wide", page_title="SmartScan AI Pro", page_icon="📄")
@@ -18,13 +18,14 @@ with st.sidebar:
     st.divider()
     night_mode = st.toggle("🌙 Night Mode", value=True)
     summary_size = st.select_slider("Summary Detail", options=["Brief", "Medium", "Detailed"])
-    st.info("Created By Tayeeb Ansari, Powered by Gemini")
+    st.info("Created By Tayeeb Ansari, Powered by Gemini 2.0")
 
 # Apply Theme
 bg, text = ("#0E1117", "#E0E0E0") if night_mode else ("#F0F2F6", "#31333F")
 st.markdown(f"<style>.stApp {{ background-color: {bg}; color: {text}; }}</style>", unsafe_allow_html=True)
 
 # --- 3. SECURE API SETUP ---
+# This pulls from your Streamlit Secrets Dashboard
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
@@ -40,7 +41,8 @@ def create_styled_pdf(text_content):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter)
     styles = getSampleStyleSheet()
-    # Safety: Escape special characters like '&' so ReportLab doesn't crash
+    
+    # Safety: Escape characters like '&' so the PDF export doesn't crash
     safe_text = saxutils.escape(text_content)
     
     elements = [Paragraph("SmartScan AI - Edited Export", styles['Heading1']), Spacer(1, 12)]
@@ -57,6 +59,7 @@ st.title("📄 SmartScan AI Hub")
 uploaded_file = st.file_uploader("Upload PDF", type="pdf")
 
 if uploaded_file:
+    # Use Session State to keep text even if the user switches tabs
     if "edited_text" not in st.session_state:
         st.session_state.edited_text = extract_text(uploaded_file)
     if "ai_summary" not in st.session_state:
@@ -73,20 +76,20 @@ if uploaded_file:
         with col_edit:
             st.subheader("✍️ Live Editor")
             st.session_state.edited_text = st.text_area(
-                "Modify text below:", 
+                "Modify extracted text:", 
                 value=st.session_state.edited_text, 
                 height=600,
                 key="workspace_editor"
             )
 
     with tab_ai:
-        st.subheader("🤖 Artificial Intelligence Insights")
+        st.subheader("🤖 AI Insights")
         if st.button("✨ Prepare AI Summary", type="primary"):
-            with st.spinner("Gemini is reading your edits..."):
+            with st.spinner("Gemini is analyzing..."):
                 try:
-                    # FIX: Correct model name format
-                    model = genai.GenerativeModel("gemini-1.5-flash")
-                    prompt = f"Summarize these edits in {summary_size} detail: {st.session_state.edited_text[:4000]}"
+                    # FIX: Updated to Gemini 2.0 Flash for 2026 compatibility
+                    model = genai.GenerativeModel("gemini-2.0-flash")
+                    prompt = f"Summarize this text in {summary_size} detail: {st.session_state.edited_text[:8000]}"
                     response = model.generate_content(prompt)
                     st.session_state.ai_summary = response.text
                 except Exception as e:
@@ -99,4 +102,12 @@ if uploaded_file:
     with tab_export:
         st.subheader("Ready to save?")
         edited_pdf = create_styled_pdf(st.session_state.edited_text)
-        st.download_button("📥 Download Edited PDF", edited_pdf, "Edited_Doc.pdf", "application/pdf")
+        st.download_button(
+            label="📥 Download Edited PDF", 
+            data=edited_pdf, 
+            file_name="SmartScan_Export.pdf", 
+            mime="application/pdf"
+        )
+
+else:
+    st.info("Welcome! Please upload a PDF to begin editing and analysis.")
