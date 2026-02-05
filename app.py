@@ -84,7 +84,7 @@ if uploaded_file:
         if st.button("✨ Prepare AI Summary", type="primary"):
             with st.spinner("Gemini is reading your edits..."):
                 try:
-                    model = genai.GenerativeModel("gemini-3-flash-preview")
+                    model = genai.GenerativeModel("gemini-1.5- flash")
                     prompt = f"Summarize these edits in {summary_size} detail: {st.session_state.edited_text[:4000]}"
                     response = model.generate_content(prompt)
                     st.session_state.ai_summary = response.text
